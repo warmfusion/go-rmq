@@ -36,7 +36,7 @@ func NewQueueListener(ea *EventAggregator, url string) *QueueListener {
 // Sensors to report back their queue names so the coordinator
 // can start listening to them
 func (ql *QueueListener) DiscoverSensors() {
-	log.Println("Discovering any existing sensors...")
+	log.Println("Auto-Discovering any existing sensors...")
 	//ensure that the Discovery Exchange is setup
 	ql.ch.ExchangeDeclare(
 		qutils.SensorDiscoveryExchange, //name string,
@@ -90,7 +90,7 @@ func (ql *QueueListener) ListenForNewSource() {
 	for sensor := range msgs {
 
 		if ql.sources[string(sensor.Body)] == nil {
-			log.Print(fmt.Sprintf("New Sensor detected: %s", sensor.Body))
+			log.Print(fmt.Sprintf("Sensor discovered: %s", sensor.Body))
 
 			ql.ea.PublishEvent("SensorRegistered", string(sensor.Body))
 
@@ -104,7 +104,6 @@ func (ql *QueueListener) ListenForNewSource() {
 				nil)                 //args amqp.Table
 
 			ql.sources[string(sensor.Body)] = delivery
-			log.Print("Added new sensor to list of sources")
 			go ql.AddListener(delivery)
 
 		}
@@ -119,9 +118,6 @@ func (ql *QueueListener) AddListener(msgs <-chan amqp.Delivery) {
 		d := gob.NewDecoder(r)         // Creates a new decoder off the bytes buffer
 		sd := new(dto.SensorMessage)   // Create a new instance of our Struct to decode INTO
 		d.Decode(sd)                   // actually decode into a struct of our Sensor Message
-
-		// Output a message of great win
-		log.Printf("Received message: %v\n", sd)
 
 		ed := EventData{
 			Name:      sd.Name,

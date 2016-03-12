@@ -2,7 +2,6 @@ package coordinator
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/marpaia/graphite-golang"
 	"github.com/streadway/amqp"
@@ -37,7 +36,6 @@ func NewGraphiteConsumer(er EventRaiser, url string, graphiteHandler *graphite.G
 	gc.conn, gc.ch = qutils.GetChannel(url)
 
 	gc.er.AddListener("SensorRegistered", func(eventData interface{}) {
-		log.Print("Sensor Registration called" + eventData.(string))
 		gc.SubscribeToEventData(eventData.(string))
 	})
 
@@ -53,7 +51,6 @@ func GetGraphiteHandle(host string, port int) *graphite.Graphite {
 		g = graphite.NewGraphiteNop(host, port)
 	}
 
-	log.Printf("Loaded Graphite connection: %#v", g)
 	g.SimpleSend("stats.graphite_loaded", "1")
 
 	return g
@@ -75,10 +72,7 @@ func (gc *GraphiteConsumer) SubscribeToEventData(name string) {
 
 // handleEvent Accepts the incoming event and handles it accordingly
 func (gc *GraphiteConsumer) handleEvent(eventData interface{}) {
-
 	ed := eventData.(EventData)
-
-	log.Printf("Metric:: [%s %f %d]", ed.Name, ed.Value, ed.Timestamp.Unix())
 
 	// 'Cast' the float to a string
 	valueAsString := fmt.Sprintf("%f", ed.Value)

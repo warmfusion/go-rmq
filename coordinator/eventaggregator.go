@@ -1,9 +1,6 @@
 package coordinator
 
-import (
-	"log"
-	"time"
-)
+import "time"
 
 // EventRaiser Generalised interface for raising events
 type EventRaiser interface {
@@ -26,16 +23,14 @@ func NewEventAggregator() *EventAggregator {
 
 // AddListener appends a callback function to the given event name
 func (ea *EventAggregator) AddListener(name string, f func(interface{})) {
-	log.Printf("Added listener for %s", name)
 	ea.listeners[name] = append(ea.listeners[name], f)
 }
 
 // PublishEvent Triggers a new event callback for the given name and eventData
 func (ea *EventAggregator) PublishEvent(name string, eventData interface{}) {
-	log.Printf("Event published; %s", name)
+	//log.Printf("Event published; %s", name)
 	if ea.listeners[name] != nil {
 		for _, r := range ea.listeners[name] {
-			log.Printf("Invoking provided function")
 			r(eventData)
 		}
 	}

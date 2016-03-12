@@ -93,13 +93,14 @@ func main() {
 			false,          //immediate bool,
 			msg)            //msg amqp.Publishing)
 
-		log.Printf("Reading sent. Value: %v\n", value)
+		//log.Printf("Reading sent. Value: %v\n", value)
 	}
 }
 
 // publishQueueName Announces this sensors queue name
 // to the discovery queue
 func publishQueueName(ch *amqp.Channel) {
+	log.Printf("Announcing [%s] to consumers", *name)
 	// Announce the existence of a new Sensor with *name
 	// so that the consumers know to start listening to this sensor
 	msg := amqp.Publishing{Body: []byte(*name)}
