@@ -8,7 +8,9 @@ import (
 )
 
 // SensorDiscoveryExchange queue name for auto-discovery of sensors
-const SensorListQueue = "SensorDiscovery"
+// The Coordinators request all sensors to reply to a discovery call
+// so that the coordinators know they exist
+const SensorDiscoveryExchange = "SensorDiscovery"
 
 // GetChannel Returns a channel for a given AMQP endpoint
 func GetChannel(url string) (*amqp.Connection, *amqp.Channel) {

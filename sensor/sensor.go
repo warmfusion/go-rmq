@@ -45,16 +45,17 @@ func main() {
 	// Create/Get the queue to use to send data to
 	dataQueue := qutils.GetQueue(*name, ch)
 
-	// Announce the existence of a new Sensor with *name
-	// so that the consumers know to start listening to this sensor
-	msg := amqp.Publishing{Body: []byte(*name)}
-	// Publish to the fanout exchange so any number of consumers get be running
-	ch.Publish(
-		"amq.fanout", //exchange string,
-		"",           //key string,
-		false,        //mandatory bool,
-		false,        //immediate bool,
-		msg)          //msg amqp.Publishing)
+	publishQueueName(ch)
+	// Create a new QueueListener to await discovery messages
+	discoveryQueue := qutils.GetQueue("", ch)
+	ch.QueueBind(
+		discoveryQueue.Name, //name string,
+		"",                  //key string,
+		qutils.SensorDiscoveryExchange, //exchange string,
+		false, //noWait bool,
+		nil)   //args amqp.Table)
+
+	go listenForDiscoveryRequests(discoveryQueue.Name, ch)
 
 	// How long to wait between ticks
 	dur, _ := time.ParseDuration(strconv.Itoa(1000/int(*freq)) + "ms")
@@ -94,6 +95,40 @@ func main() {
 
 		log.Printf("Reading sent. Value: %v\n", value)
 	}
+}
+
+// publishQueueName Announces this sensors queue name
+// to the discovery queue
+func publishQueueName(ch *amqp.Channel) {
+	// Announce the existence of a new Sensor with *name
+	// so that the consumers know to start listening to this sensor
+	msg := amqp.Publishing{Body: []byte(*name)}
+	// Publish to the fanout exchange so any number of consumers get be running
+	ch.Publish(
+		"amq.fanout", //exchange string,
+		"",           //key string,
+		false,        //mandatory bool,
+		false,        //immediate bool,
+		msg)          //msg amqp.Publishing)
+
+}
+
+func listenForDiscoveryRequests(name string, ch *amqp.Channel) {
+
+	msgs, _ := ch.Consume(
+		name,  //queue string,
+		"",    //consumer string,
+		true,  //autoAck bool,
+		false, //exclusive bool,
+		false, //noLocal bool,
+		false, //noWait bool,
+		nil)   //args amqp.Table)
+
+	for range msgs {
+		log.Print("Received discovery request...")
+		publishQueueName(ch)
+	}
+
 }
 
 // calcValue will return a value between the max/min values configured
