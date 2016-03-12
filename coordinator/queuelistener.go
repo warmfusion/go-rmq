@@ -16,13 +16,15 @@ type QueueListener struct {
 	conn    *amqp.Connection
 	ch      *amqp.Channel
 	sources map[string]<-chan amqp.Delivery
+	ea      *EventAggregator
 }
 
 // NewQueueListener Get a new QueueListener
-func NewQueueListener(url string) *QueueListener {
+func NewQueueListener(ea *EventAggregator, url string) *QueueListener {
 
 	ql := QueueListener{
 		sources: make(map[string]<-chan amqp.Delivery),
+		ea:      ea,
 	}
 
 	ql.conn, ql.ch = qutils.GetChannel(url)
@@ -62,7 +64,7 @@ func (ql *QueueListener) DiscoverSensors() {
 // struct (the parans between func and function name)
 // so that it can be invoked with ql.ListenForNewSource()
 func (ql *QueueListener) ListenForNewSource() {
-	q := qutils.GetQueue("", ql.ch)
+	q := qutils.GetQueue("", ql.ch, true)
 	ql.ch.QueueBind(
 		q.Name,       //name string,
 		"",           //key string,
@@ -89,6 +91,8 @@ func (ql *QueueListener) ListenForNewSource() {
 
 		if ql.sources[string(sensor.Body)] == nil {
 			log.Print(fmt.Sprintf("New Sensor detected: %s", sensor.Body))
+
+			ql.ea.PublishEvent("SensorRegistered", string(sensor.Body))
 
 			delivery, _ := ql.ch.Consume(
 				string(sensor.Body), //queue string,
@@ -117,7 +121,15 @@ func (ql *QueueListener) AddListener(msgs <-chan amqp.Delivery) {
 		d.Decode(sd)                   // actually decode into a struct of our Sensor Message
 
 		// Output a message of great win
-		fmt.Printf("Received message: %v\n", sd)
+		log.Printf("Received message: %v\n", sd)
+
+		ed := EventData{
+			Name:      sd.Name,
+			Timestamp: sd.Timestamp,
+			Value:     sd.Value,
+		}
+
+		ql.ea.PublishEvent("datum_"+msg.RoutingKey, ed)
 
 	}
 }

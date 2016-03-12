@@ -43,11 +43,11 @@ func main() {
 	defer ch.Close()   // Ensure that the Channel is closed when main() finishes
 
 	// Create/Get the queue to use to send data to
-	dataQueue := qutils.GetQueue(*name, ch)
+	dataQueue := qutils.GetQueue(*name, ch, false)
 
 	publishQueueName(ch)
 	// Create a new QueueListener to await discovery messages
-	discoveryQueue := qutils.GetQueue("", ch)
+	discoveryQueue := qutils.GetQueue("", ch, true)
 	ch.QueueBind(
 		discoveryQueue.Name, //name string,
 		"",                  //key string,

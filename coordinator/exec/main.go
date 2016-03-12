@@ -14,7 +14,10 @@ var (
 func main() {
 	flag.Parse()
 
-	ql := coordinator.NewQueueListener(string(*url))
+	er := coordinator.NewEventAggregator()
+	ql := coordinator.NewQueueListener(er, string(*url))
+	coordinator.NewGraphiteConsumer(er, string(*url))
+
 	go ql.ListenForNewSource()
 
 	// This will hold the code open till we elect to stop it

@@ -23,14 +23,14 @@ func GetChannel(url string) (*amqp.Connection, *amqp.Channel) {
 }
 
 // GetQueue Returns a Queue with the given name
-func GetQueue(name string, ch *amqp.Channel) *amqp.Queue {
+func GetQueue(name string, ch *amqp.Channel, autoDelete bool) *amqp.Queue {
 	q, err := ch.QueueDeclare(
-		name,  //name string,
-		false, //durable bool,
-		false, //autoDelete bool,
-		false, //exclusive bool,
-		false, //noWait bool,
-		nil)   //args amqp.Table)
+		name,       //name string,
+		false,      //durable bool,
+		autoDelete, //autoDelete bool,
+		false,      //exclusive bool,
+		false,      //noWait bool,
+		nil)        //args amqp.Table)
 
 	failOnError(err, "Failed to declare queue")
 
