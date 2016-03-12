@@ -28,14 +28,17 @@ var (
 var r = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 // Value = Current sensor value
-var value = r.Float64()*(*max-*min) + *min
+var value float64
 
 // Where should the normalised point be (The middle)
-var nom = (*max-*min)/2 + *min
+var nom float64
 
 func main() {
 	// Parse all the input flags
 	flag.Parse()
+
+	value = r.Float64()*(*max-*min) + *min
+	nom = (*max-*min)/2 + *min
 
 	//Create a new connection and channel against the provided url
 	conn, ch := qutils.GetChannel(*url)
@@ -101,9 +104,28 @@ func main() {
 // to the discovery queue
 func publishQueueName(ch *amqp.Channel) {
 	log.Printf("Announcing [%s] to consumers", *name)
+
+	// Create a new reading measurement
+	sensor := dto.Sensor{
+		Name:         *name,
+		UnitType:     "celcius",
+		MinSafeValue: *min,
+		MaxSafeValue: *max,
+	}
+
+	buf := new(bytes.Buffer)
+
+	// Ensure the buffer is clear of any old data
+	buf.Reset()
+	enc := gob.NewEncoder(buf) // Need to make a new encoder each time
+	enc.Encode(sensor)         // Encode that sucker into the buffer we've given it
+
 	// Announce the existence of a new Sensor with *name
 	// so that the consumers know to start listening to this sensor
-	msg := amqp.Publishing{Body: []byte(*name)}
+	msg := amqp.Publishing{
+		Body: buf.Bytes(),
+	}
+
 	// Publish to the fanout exchange so any number of consumers get be running
 	ch.Publish(
 		"amq.fanout", //exchange string,

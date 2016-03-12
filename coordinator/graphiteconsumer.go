@@ -5,6 +5,7 @@ import (
 
 	"github.com/marpaia/graphite-golang"
 	"github.com/streadway/amqp"
+	"github.com/warmfusion/go-rmq/dto"
 	"github.com/warmfusion/go-rmq/qutils"
 )
 
@@ -35,8 +36,9 @@ func NewGraphiteConsumer(er EventRaiser, url string, graphiteHandler *graphite.G
 
 	gc.conn, gc.ch = qutils.GetChannel(url)
 
-	gc.er.AddListener("SensorRegistered", func(eventData interface{}) {
-		gc.SubscribeToEventData(eventData.(string))
+	gc.er.AddListener("SensorRegistered", func(event interface{}) {
+		sensor := event.(*dto.Sensor)
+		gc.SubscribeToSensor(sensor)
 	})
 
 	return &gc
@@ -56,18 +58,18 @@ func GetGraphiteHandle(host string, port int) *graphite.Graphite {
 	return g
 }
 
-// SubscribeToEventData Add any new event sources to the event raiser listeners
-func (gc *GraphiteConsumer) SubscribeToEventData(name string) {
+// SubscribeToSensor Add any new event sources to the event raiser listeners
+func (gc *GraphiteConsumer) SubscribeToSensor(sensor *dto.Sensor) {
 
 	// Check if we're already subscribed to this event source
 	for _, v := range gc.sources {
-		if v == name {
+		if v == sensor.Name {
 			return // Already listening - ignore it
 		}
 	}
 
 	// Add the listener callback that'll be fired when a new event is found
-	gc.er.AddListener("datum_"+name, gc.handleEvent)
+	gc.er.AddListener("datum_"+sensor.Name, gc.handleEvent)
 }
 
 // handleEvent Accepts the incoming event and handles it accordingly

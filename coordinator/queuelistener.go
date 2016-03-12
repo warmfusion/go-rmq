@@ -15,7 +15,7 @@ import (
 type QueueListener struct {
 	conn    *amqp.Connection
 	ch      *amqp.Channel
-	sources map[string]<-chan amqp.Delivery
+	sources map[string]*dto.Sensor
 	ea      *EventAggregator
 }
 
@@ -23,7 +23,7 @@ type QueueListener struct {
 func NewQueueListener(ea *EventAggregator, url string) *QueueListener {
 
 	ql := QueueListener{
-		sources: make(map[string]<-chan amqp.Delivery),
+		sources: make(map[string]*dto.Sensor),
 		ea:      ea,
 	}
 
@@ -87,28 +87,31 @@ func (ql *QueueListener) ListenForNewSource() {
 	// lets discover them
 	ql.DiscoverSensors()
 
-	for sensor := range msgs {
+	for msg := range msgs {
 
-		if ql.sources[string(sensor.Body)] == nil {
-			log.Print(fmt.Sprintf("Sensor discovered: %s", sensor.Body))
+		r := bytes.NewReader(msg.Body) // Read the bosy into a bytes buffer
+		d := gob.NewDecoder(r)         // Creates a new decoder off the bytes buffer
+		sensor := new(dto.Sensor)      // Create a new instance of our Struct to decode INTO
+		d.Decode(sensor)               // actually decode into a struct of our Sensor Message
 
-			ql.ea.PublishEvent("SensorRegistered", string(sensor.Body))
+		if ql.sources[sensor.Name] == nil {
+			log.Print(fmt.Sprintf("Sensor discovered: %s", sensor.Name))
+
+			ql.ea.PublishEvent("SensorRegistered", sensor)
 
 			delivery, _ := ql.ch.Consume(
-				string(sensor.Body), //queue string,
-				"",                  //consumer string,
-				true,                //autoAck bool,
-				false,               //exclusive bool,
-				false,               //noLocal bool,
-				false,               //noWait bool,
-				nil)                 //args amqp.Table
+				sensor.Name, //queue string,
+				"",          //consumer string,
+				true,        //autoAck bool,
+				false,       //exclusive bool,
+				false,       //noLocal bool,
+				false,       //noWait bool,
+				nil)         //args amqp.Table
 
-			ql.sources[string(sensor.Body)] = delivery
+			ql.sources[sensor.Name] = sensor
 			go ql.AddListener(delivery)
-
 		}
 	}
-
 }
 
 // AddListener Watches the amqp.Delivery channel for new messages and handles them

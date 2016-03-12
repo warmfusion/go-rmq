@@ -11,6 +11,9 @@ import (
 // The Coordinators request all sensors to reply to a discovery call
 // so that the coordinators know they exist
 const SensorDiscoveryExchange = "SensorDiscovery"
+const WebappSourceExchange = "WebappSourceExchange"
+const WebappMetricsExchange = "WebappMetricsExchange" // To get actual live data
+const WebappDiscoveryQueue = "WebappDiscoveryQueue"   // To find the sources that are avaliable
 
 // GetChannel Returns a channel for a given AMQP endpoint
 func GetChannel(url string) (*amqp.Connection, *amqp.Channel) {

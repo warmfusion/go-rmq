@@ -13,6 +13,8 @@ var (
 	gPort = flag.Int("graphite_port", 2003, "Port of the Graphite service")
 )
 
+var wc *coordinator.WebappConsumer
+
 func main() {
 	flag.Parse()
 
@@ -21,6 +23,8 @@ func main() {
 
 	graphiteHandler := coordinator.GetGraphiteHandle(*gHost, *gPort)
 	coordinator.NewGraphiteConsumer(er, string(*url), graphiteHandler)
+
+	wc = coordinator.NewWebappConsumer(er, string(*url))
 
 	go ql.ListenForNewSource()
 
