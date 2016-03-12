@@ -3,8 +3,10 @@ package coordinator
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
 	"log"
 
+	"github.com/marpaia/graphite-golang"
 	"github.com/streadway/amqp"
 	"github.com/warmfusion/go-rmq/qutils"
 )
@@ -20,25 +22,18 @@ import (
 // queues, converts them into Metrics Events so that they can be handled
 // by dedicated handlers
 type GraphiteConsumer struct {
-	er       EventRaiser // Event raiser
-	endpoint string      // Host:port of graphite
-	conn     *amqp.Connection
-	ch       *amqp.Channel
-	sources  []string
-}
-
-// GraphiteMetric representing a Metric suitable for Graphite/Carbon
-type GraphiteMetric struct {
-	Key       string
-	Value     float64
-	Timestamp int64
+	er              EventRaiser        // Event raiser
+	graphiteHandler *graphite.Graphite // Graphite handler
+	conn            *amqp.Connection
+	ch              *amqp.Channel
+	sources         []string
 }
 
 // NewGraphiteConsumer Create a new GraphiteConsumer
-func NewGraphiteConsumer(er EventRaiser, url string) *GraphiteConsumer {
+func NewGraphiteConsumer(er EventRaiser, url string, graphiteHandler *graphite.Graphite) *GraphiteConsumer {
 	gc := GraphiteConsumer{
-		er:       er,
-		endpoint: "localhost:2003",
+		er:              er,
+		graphiteHandler: graphiteHandler,
 	}
 
 	gc.conn, gc.ch = qutils.GetChannel(url)
@@ -49,6 +44,21 @@ func NewGraphiteConsumer(er EventRaiser, url string) *GraphiteConsumer {
 	})
 
 	return &gc
+}
+
+// GetGraphiteHandle Create and return a graphite handle for the given endpoint
+func GetGraphiteHandle(host string, port int) *graphite.Graphite {
+	// try to connect a graphite server
+	g, err := graphite.NewGraphite(host, port)
+	// if you couldn't connect to graphite, use a nop
+	if err != nil {
+		g = graphite.NewGraphiteNop(host, port)
+	}
+
+	log.Printf("Loaded Graphite connection: %#v", g)
+	g.SimpleSend("stats.graphite_loaded", "1")
+
+	return g
 }
 
 // SubscribeToEventData Add any new event sources to the event raiser listeners
@@ -76,12 +86,15 @@ func (gc *GraphiteConsumer) SubscribeToEventData(name string) {
 
 			log.Printf("Metric:: [%s %f %d]", ed.Name, ed.Value, ed.Timestamp.Unix())
 
+			valueAsString := fmt.Sprintf("%f", ed.Value)
 			// Create a new reading measurement
-			metric := GraphiteMetric{
-				Key:       ed.Name,
-				Value:     ed.Value,
+			metric := graphite.Metric{
+				Name:      ed.Name,
+				Value:     valueAsString,
 				Timestamp: ed.Timestamp.Unix(),
 			}
+
+			gc.graphiteHandler.SendMetric(metric)
 
 			// Ensure the buffer is clear of any old data
 			buf.Reset()

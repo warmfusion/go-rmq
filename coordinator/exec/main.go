@@ -8,7 +8,9 @@ import (
 )
 
 var (
-	url = flag.String("rmq_url", "amqp://guest:guest@192.168.99.100:5672", "RabbitMQ endpoint URL")
+	url   = flag.String("rmq_url", "amqp://guest:guest@192.168.99.100:5672", "RabbitMQ endpoint URL")
+	gHost = flag.String("graphite_host", "localhost", "Host of the Graphite service")
+	gPort = flag.Int("graphite_port", 2003, "Port of the Graphite service")
 )
 
 func main() {
@@ -16,7 +18,9 @@ func main() {
 
 	er := coordinator.NewEventAggregator()
 	ql := coordinator.NewQueueListener(er, string(*url))
-	coordinator.NewGraphiteConsumer(er, string(*url))
+
+	graphiteHandler := coordinator.GetGraphiteHandle(*gHost, *gPort)
+	coordinator.NewGraphiteConsumer(er, string(*url), graphiteHandler)
 
 	go ql.ListenForNewSource()
 
