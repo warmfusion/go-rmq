@@ -15,29 +15,40 @@ import (
 	"github.com/streadway/amqp"
 )
 
-var url = "amqp://guest:guest@192.168.99.100:5672"
+var (
+	url      = flag.String("rmq_url", "amqp://guest:guest@192.168.99.100:5672", "RabbitMQ endpoint URL")
+	name     = flag.String("name", "sensor", "name of the sensor")
+	freq     = flag.Uint("freq", 5, "update frequency in cycles/sec")
+	max      = flag.Float64("max", 5., "maximum value for generated readings")
+	min      = flag.Float64("min", 1., "minimum value for generated readings")
+	stepSize = flag.Float64("step", 0.1, "maximum allowable change per measurement")
+)
 
-var name = flag.String("name", "sensor", "name of the sensor")
-var freq = flag.Uint("freq", 5, "update frequency in cycles/sec")
-var max = flag.Float64("max", 5., "maximum value for generated readings")
-var min = flag.Float64("min", 1., "minimum value for generated readings")
-var stepSize = flag.Float64("step", 0.1, "maximum allowable change per measurement")
-
+// Random numbery ness with seed of UnixNano
 var r = rand.New(rand.NewSource(time.Now().UnixNano()))
 
+// Value = Current sensor value
 var value = r.Float64()*(*max-*min) + *min
+
+// Where should the normalised point be (The middle)
 var nom = (*max-*min)/2 + *min
 
 func main() {
+	// Parse all the input flags
 	flag.Parse()
 
-	conn, ch := qutils.GetChannel(url)
-	defer conn.Close()
-	defer ch.Close()
+	//Create a new connection and channel against the provided url
+	conn, ch := qutils.GetChannel(*url)
+	defer conn.Close() // Ensure that the Connection is closed when main() finishes
+	defer ch.Close()   // Ensure that the Channel is closed when main() finishes
 
+	// Create/Get the queue to use to send data to
 	dataQueue := qutils.GetQueue(*name, ch)
 
+	// Announce the existence of a new Sensor with *name
+	// so that the consumers know to start listening to this sensor
 	msg := amqp.Publishing{Body: []byte(*name)}
+	// Publish to the fanout exchange so any number of consumers get be running
 	ch.Publish(
 		"amq.fanout", //exchange string,
 		"",           //key string,
@@ -45,28 +56,35 @@ func main() {
 		false,        //immediate bool,
 		msg)          //msg amqp.Publishing)
 
+	// How long to wait between ticks
 	dur, _ := time.ParseDuration(strconv.Itoa(1000/int(*freq)) + "ms")
-
 	signal := time.Tick(dur)
 
+	// Buffer for encoding the message to be sent
 	buf := new(bytes.Buffer)
-	enc := gob.NewEncoder(buf)
 
+	// Blocks on signal till the tick count is reached
 	for range signal {
-		calcValue()
+		calcValue() // Get a new value (Stored in package variable)
+
+		// Create a new reading measurement
 		reading := dto.SensorMessage{
 			Name:      *name,
 			Value:     value,
 			Timestamp: time.Now(),
 		}
 
+		// Ensure the buffer is clear of any old data
 		buf.Reset()
-		enc.Encode(reading)
+		enc := gob.NewEncoder(buf) // Need to make a new encoder each time
+		enc.Encode(reading)        // Encode that sucker into the buffer we've given it
 
+		// Creates a new message struct which we can publish to the queue
 		msg := amqp.Publishing{
 			Body: buf.Bytes(),
 		}
 
+		// Publish our message to the dataQueue
 		ch.Publish(
 			"",             //exchange string,
 			dataQueue.Name, //key string,
@@ -78,6 +96,9 @@ func main() {
 	}
 }
 
+// calcValue will return a value between the max/min values configured
+// but tries to keep the values near the midpoint using some weighted
+// normals - this makes it look a bit more natural
 func calcValue() {
 	var maxStep, minStep float64
 
