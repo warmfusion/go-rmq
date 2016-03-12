@@ -1,8 +1,6 @@
 package coordinator
 
 import (
-	"bytes"
-	"encoding/gob"
 	"fmt"
 	"log"
 
@@ -71,43 +69,26 @@ func (gc *GraphiteConsumer) SubscribeToEventData(name string) {
 		}
 	}
 
-	// Hngg... I _think_ I understand whats going on here..
-	// We're registering a new callback listener for the given name
-	// but rather than simply giving a function to invoke, we're giving a
-	// closure which when invokes returns another function (which is what we
-	// actually want to be invokved)
-	// This lets me share some state (buffer) between calls
-	gc.er.AddListener("datum_"+name, func() func(interface{}) {
+	// Add the listener callback that'll be fired when a new event is found
+	gc.er.AddListener("datum_"+name, gc.handleEvent)
+}
 
-		buf := new(bytes.Buffer)
+// handleEvent Accepts the incoming event and handles it accordingly
+func (gc *GraphiteConsumer) handleEvent(eventData interface{}) {
 
-		return func(eventData interface{}) {
-			ed := eventData.(EventData)
+	ed := eventData.(EventData)
 
-			log.Printf("Metric:: [%s %f %d]", ed.Name, ed.Value, ed.Timestamp.Unix())
+	log.Printf("Metric:: [%s %f %d]", ed.Name, ed.Value, ed.Timestamp.Unix())
 
-			valueAsString := fmt.Sprintf("%f", ed.Value)
-			// Create a new reading measurement
-			metric := graphite.Metric{
-				Name:      ed.Name,
-				Value:     valueAsString,
-				Timestamp: ed.Timestamp.Unix(),
-			}
+	// 'Cast' the float to a string
+	valueAsString := fmt.Sprintf("%f", ed.Value)
+	// Create a new reading measurement
+	metric := graphite.Metric{
+		Name:      ed.Name,
+		Value:     valueAsString,
+		Timestamp: ed.Timestamp.Unix(),
+	}
 
-			gc.graphiteHandler.SendMetric(metric)
-
-			// Ensure the buffer is clear of any old data
-			buf.Reset()
-			enc := gob.NewEncoder(buf) // Need to make a new encoder each time
-			enc.Encode(metric)         // Encode that sucker into the buffer we've given it
-
-			//metric is now ready to be re-emitted to the broker
-			gc.ch.Publish(
-				"metrics", //exchange string,
-				"",        //key string,
-				false,     //mandatory bool,
-				false,     //immediate bool,
-				amqp.Publishing{Body: buf.Bytes()}) //msg amqp.Publishing)
-		}
-	}())
+	// Send the data to Graphite
+	gc.graphiteHandler.SendMetric(metric)
 }
