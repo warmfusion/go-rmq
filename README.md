@@ -1,7 +1,7 @@
 # go-rmq
 
 This code is pretty much taken verbatim from half way through a PluralSight lecture named
-(Go Build Distributed Applications)[http://www.pluralsight.com/courses/go-build-distributed-applications] By Mike Vansickle
+[Go Build Distributed Applications](http://www.pluralsight.com/courses/go-build-distributed-applications) By Mike Vansickle
 
 I've added comments, and reworded a few things as I've been re-writing the implementation, but
 it works.
@@ -23,3 +23,33 @@ Then (any number of) sensors with something like this, where the name is based o
 
 
 (And any more consumers if you want to...)
+
+## Help!
+
+The main scripts have `-help` options you can use;
+
+### Coordinators
+
+      go run coordinator/exec/main.go -help
+      Usage of /var/folders/9q/2mbtqfx911q8h8jj2xhk6jxw0000gn/T/go-build162413432/command-line-arguments/_obj/exe/main:
+        -rmq_url string
+          	RabbitMQ endpoint URL (default "amqp://guest:guest@192.168.99.100:5672")
+      exit status 2
+
+### Sensors
+
+      go run sensor/sensor.go  -help
+     Usage of /var/folders/9q/2mbtqfx911q8h8jj2xhk6jxw0000gn/T/go-build030101474/command-line-arguments/_obj/exe/sensor:
+       -freq uint
+         	update frequency in cycles/sec (default 5)
+       -max float
+         	maximum value for generated readings (default 5)
+       -min float
+         	minimum value for generated readings (default 1)
+       -name string
+         	name of the sensor (default "sensor")
+       -rmq_url string
+         	RabbitMQ endpoint URL (default "amqp://guest:guest@192.168.99.100:5672")
+       -step float
+         	maximum allowable change per measurement (default 0.1)
+     exit status 2
