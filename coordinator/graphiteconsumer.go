@@ -52,15 +52,11 @@ func GetGraphiteHandle(host string, port int) *graphite.Graphite {
 	if err != nil {
 		g = graphite.NewGraphiteNop(host, port)
 	}
-
-	g.SimpleSend("stats.graphite_loaded", "1")
-
 	return g
 }
 
 // SubscribeToSensor Add any new event sources to the event raiser listeners
 func (gc *GraphiteConsumer) SubscribeToSensor(sensor *dto.Sensor) {
-
 	// Check if we're already subscribed to this event source
 	for _, v := range gc.sources {
 		if v == sensor.Name {
